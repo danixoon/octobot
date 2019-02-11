@@ -1,15 +1,16 @@
 import { ICommand, ICommandExec } from "../commandHandler";
-import { emptyKeyboard } from "../keyboards";
+import { passwordGetButton, backButton } from "../keyboards";
+import { Keyboard } from "vk-io";
 
 const command: ICommand = {
-  aliases: ["back", "назад"],
-  description: "Запуск",
+  aliases: ["back", "назад", "undo"],
+  description: "Отменить действие/перейти на этап назад",
   global: true,
   async next(ctx, { handler }) {
     const deleted = handler.undoState(ctx);
     if (deleted)
       ctx.send("Вы вышли из бота", {
-        keyboard: emptyKeyboard
+        keyboard: Keyboard.keyboard([passwordGetButton])
       });
   }
 };

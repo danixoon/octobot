@@ -1,6 +1,7 @@
 import fs, { stat } from "fs";
 import path from "path";
-import { MessageContext } from "vk-io";
+import { MessageContext, Keyboard } from "vk-io";
+import logger from "./logHandler";
 
 const COMMAND_PATH = "./commands";
 
@@ -11,14 +12,14 @@ export type ICommandExec = (
     handler: CommandHandler;
     state: any;
   }
-) => Promise<ICommandPart | void>;
+) => Promise<ICommandCallback | void>;
 
 export interface ICommandCondError {
   error: boolean;
   message?: string;
 }
 
-export interface ICommandPart {
+export interface ICommandCallback {
   next?: ICommandExec;
   condition?: ICommandCond;
   data?: any;
@@ -35,11 +36,11 @@ export interface ICommandPayload {
   [key: string]: any;
 }
 
-export interface ICommand extends ICommandData, ICommandPart {}
+export interface ICommand extends ICommandData, ICommandCallback {}
 
 export interface ICommandState {
   command: ICommandData;
-  stack: ICommandPart[];
+  stack: ICommandCallback[];
 }
 
 // function loadCommands(): Promise<ICommand[]> {
@@ -65,13 +66,16 @@ export interface ICommandState {
 // }
 
 import start from "./commands/start";
-import students from "./commands/students";
+import students from "./commands/student";
 import undo from "./commands/undo";
-import time from "./commands/time";
-import { studentGetKeyboard } from "./keyboards";
+import time from "./commands/secret";
+import help from "./commands/help";
+import hash from "./commands/hash";
+
+import { passwordGetButton } from "./keyboards";
 
 async function loadCommands() {
-  return [start, students, undo, time];
+  return [start, students, undo, time, help, hash];
 }
 
 export default async function init(prefix: string) {
@@ -83,8 +87,9 @@ export default async function init(prefix: string) {
 }
 
 const fallbackCommand: ICommandExec = async ctx => {
-  console.log(`Fallback Command by user ${ctx.peerId}`);
-  ctx.send("Для взаимодействия с ботом используется клавиатуру ниже", { keyboard: studentGetKeyboard });
+  // console.log();
+  logger.log(`command handler`, `fallback command by user ${ctx.peerId}`);
+  ctx.send("Для взаимодействия с ботом используйте клавиатуру ниже", { keyboard: Keyboard.keyboard([passwordGetButton]) });
 };
 
 export class CommandHandler {
@@ -96,7 +101,7 @@ export class CommandHandler {
     this.prefix = prefix;
   }
   getCommand(name: string) {
-    return name.startsWith(this.prefix) && this.commands.find(c => c.aliases.includes(name.substr(1, name.length)));
+    return name.startsWith(this.prefix) && this.commands.find(c => c.aliases.includes(name.toLowerCase().substr(1, name.length)));
   }
   async handleMessage(ctx: MessageContext) {
     const state = this.commandsState.get(ctx.peerId);
@@ -105,7 +110,10 @@ export class CommandHandler {
   }
   async handleCommand(ctx: MessageContext, command?: ICommand, state?: ICommandState) {
     if (!command && !state) fallbackCommand(ctx, { handler: this, state: {} });
-    if (command && command.global && command.next) return await command.next(ctx, { handler: this, state: {} });
+    if (command && command.global && command.next) {
+      logger.log("command handler", `handling global command ${command.aliases[0]} from user ${ctx.peerId}`);
+      return await command.next(ctx, { handler: this, state: {} });
+    }
 
     if (!state && command) {
       state = this.createState(command);
@@ -134,8 +142,9 @@ export class CommandHandler {
       stack: [command]
     };
   }
-  async handleState(ctx: MessageContext, state: ICommandState, command: ICommandPart) {
-    console.log(`Handling command ${state.command.aliases[0]} from user ${ctx.peerId}`);
+  async handleState(ctx: MessageContext, state: ICommandState, command: ICommandCallback) {
+    // console.log(`Handling command ${state.command.aliases[0]} from user ${ctx.peerId}`);
+    logger.log("command handler", `handling command ${state.command.aliases[0]} from user ${ctx.peerId}`);
     const next = command.next
       ? await command.next(ctx, {
           handler: this,
@@ -151,7 +160,8 @@ export class CommandHandler {
     state.stack.splice(-2, 2);
     if (state.stack.length === 0) {
       this.commandsState.delete(ctx.peerId);
-      console.log(`Command ${state.command.aliases[0]} state ended by user ${ctx.peerId}`);
+      logger.log("command handler", `command ${state.command.aliases[0]} state ended by user ${ctx.peerId}`);
+      // console.log(`Command ${state.command.aliases[0]} state ended by user ${ctx.peerId}`);
       return true;
     } else {
       this.handleState(ctx, state, state.stack[state.stack.length - 1]);

@@ -11,18 +11,13 @@ export const backButton = Keyboard.textButton({
   payload: { command: "back" }
 });
 
-export const studentGetKeyboard = Keyboard.keyboard([
-  [
-    Keyboard.textButton({
-      color: "positive",
-      label: "Ввести пароль",
-      payload: {
-        command: "student"
-      }
-    })
-  ],
-  [backButton]
-]);
+export const passwordGetButton = Keyboard.textButton({
+  color: "positive",
+  label: "Ввести пароль",
+  payload: {
+    command: "student"
+  }
+});
 
 export const yesNoKeyboard = Keyboard.keyboard([
   [

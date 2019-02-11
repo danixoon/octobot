@@ -2,6 +2,8 @@ import VK, { MessageContext, Keyboard } from "vk-io";
 import path from "path";
 import initHandler, { CommandHandler } from "./commandHandler";
 import fs from "fs";
+import * as dataHandler from "./dataHandler";
+import logger, { LogType } from "./logHandler";
 
 const CONFIG_PATH = "./config/config.json";
 const COMMAND_PREFIX = "/";
@@ -12,29 +14,16 @@ let vk: VK = new VK();
 
 const { updates } = vk;
 
-async function loadConfig(path: string) {
-  return new Promise((res, rej) =>
-    fs.readFile(path, (err, data: any) => {
-      if (err) return rej;
-      try {
-        return res(JSON.parse(data));
-      } catch (error) {
-        rej(error);
-      }
-    })
-  );
-}
-
 async function run() {
-  config = (await loadConfig(CONFIG_PATH)) as any;
+  config = (await dataHandler.loadData(CONFIG_PATH).catch(err => logger.log("main", err, LogType.error))) as any;
   vk.setOptions(config);
   commandHandler = await initHandler(COMMAND_PREFIX);
   if (process.env.UPDATES === "webhook") {
     await vk.updates.startWebhook();
-    console.log("Webhook server started");
+    logger.log("main", "webhook server started", LogType.info);
   } else {
     await vk.updates.startPolling();
-    console.log("Polling started");
+    logger.log("main", "long polling server started", LogType.info);
   }
 }
 

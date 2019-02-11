@@ -1,9 +1,12 @@
 import { ICommand, ICommandExec } from "../commandHandler";
-import { emptyKeyboard } from "../keyboards";
+import { emptyKeyboard, backButton } from "../keyboards";
 import xlsx from "xlsx";
 import path from "path";
 import crypto from "crypto";
 import fs from "fs";
+import { Keyboard } from "vk-io";
+import * as dataHandler from "../dataHandler";
+import logger, { LogType } from "../logHandler";
 
 const PASSWORD_PATH = "./config/passwords.json";
 
@@ -12,25 +15,18 @@ export interface IStudent {
   studentName: string;
 }
 
-async function loadConfig(path: string) {
-  return new Promise((res, rej) =>
-    fs.readFile(path, (err, data: any) => {
-      if (err) return rej;
-      try {
-        return res(JSON.parse(data));
-      } catch (error) {
-        rej(error);
-      }
-    })
-  );
-}
-
 const command: ICommand = {
   aliases: ["student"],
-  description: "Запуск",
+  description: "Выдать информацию о студенте",
   async next(ctx, { state }) {
-    const passwords = await getPasswords();
-    ctx.send("Введите пароль.");
+    const passwords = await dataHandler.loadData<IStudent[]>(PASSWORD_PATH).catch(err => logger.log("command: student", err, LogType.error));
+    if (!passwords) {
+      ctx.send("Вышла ошибочка при загрузке данных студентов, свяжитесь с админами, плес...");
+      return;
+    }
+    ctx.send("Введите пароль.", {
+      keyboard: Keyboard.keyboard([[backButton]])
+    });
     return {
       next: getStudentInfo,
       data: state,
@@ -56,10 +52,6 @@ const command: ICommand = {
     };
   }
 };
-
-async function getPasswords() {
-  return (await loadConfig(PASSWORD_PATH)) as IStudent[];
-}
 
 const getStudentInfo: ICommandExec = async (ctx, { state }) => {
   const student = findStudent(state.user);

@@ -11,9 +11,11 @@
   "dependencies": {
     "@types/cheerio": "^0.22.10",
     "@types/node-fetch": "^2.1.4",
+    "@types/terminal-kit": "^1.26.0",
     "@types/tough-cookie": "^2.3.5",
     "@types/ws": "^6.0.1",
     "@types/xlsx": "^0.0.36",
+    "terminal-kit": "^1.26.11",
     "vk-io": "^4.0.0-rc.15",
     "xlsx": "^0.14.1"
   }

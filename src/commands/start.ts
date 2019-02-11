@@ -1,12 +1,13 @@
 import { ICommandExec, ICommand, ICommandPayload } from "../commandHandler";
-import { studentGetKeyboard } from "../keyboards";
+import { passwordGetButton } from "../keyboards";
+import { Keyboard } from "vk-io";
 
 const command: ICommand = {
   aliases: ["start", "начать"],
   description: "Запуск",
   async next(ctx, data) {
     ctx.send("Здравствуй! Я помогу тебе заплакать!", {
-      keyboard: studentGetKeyboard
+      keyboard: Keyboard.keyboard([passwordGetButton])
     });
   }
 };
