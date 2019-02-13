@@ -5,7 +5,7 @@ import logger from "./logHandler";
 
 const COMMAND_PATH = "./commands";
 
-export type ICommandCond = (ctx: MessageContext) => Promise<ICommandCondError>;
+export type ICommandCond = (ctx: MessageContext) => Promise<ICommandCondResult>;
 export type ICommandExec = (
   ctx: MessageContext,
   data: {
@@ -14,9 +14,10 @@ export type ICommandExec = (
   }
 ) => Promise<ICommandCallback | void>;
 
-export interface ICommandCondError {
+export interface ICommandCondResult {
   error: boolean;
   message?: string;
+  next?: ICommandExec;
 }
 
 export interface ICommandCallback {
@@ -103,6 +104,11 @@ export class CommandHandler {
   getCommand(name: string) {
     return name.startsWith(this.prefix) && this.commands.find(c => c.aliases.includes(name.toLowerCase().substr(1, name.length)));
   }
+  async forceExitMessage(ctx: MessageContext) {
+    await ctx.send("Вы вышли из бота", {
+      keyboard: Keyboard.keyboard([passwordGetButton])
+    });
+  }
   async handleMessage(ctx: MessageContext) {
     const state = this.commandsState.get(ctx.peerId);
     const payload = ctx.messagePayload;
@@ -127,8 +133,9 @@ export class CommandHandler {
     // if (condition.error)
     // else if (condition.message) ctx.send(condition.message);
     if (condition) {
-      if (condition.error) ctx.send(condition.message || "Неверные параметры");
-      else {
+      if (condition.error) {
+        if (condition.message) ctx.send(condition.message);
+      } else {
         if (condition.message) ctx.send(condition.message);
         // this.handleState(ctx, state);
         await this.handleState(ctx, state, last);
@@ -151,8 +158,10 @@ export class CommandHandler {
           state: command.data
         })
       : undefined;
-    if (!next) this.commandsState.delete(ctx.peerId);
-    else state.stack.push(next);
+    if (!next) {
+      this.commandsState.delete(ctx.peerId);
+      // this.forceExitMessage(ctx);
+    } else state.stack.push(next);
   }
   undoState(ctx: MessageContext) {
     const state = this.commandsState.get(ctx.peerId);
@@ -160,6 +169,7 @@ export class CommandHandler {
     state.stack.splice(-2, 2);
     if (state.stack.length === 0) {
       this.commandsState.delete(ctx.peerId);
+      // this.forceExitMessage(ctx);
       logger.log("command handler", `command ${state.command.aliases[0]} state ended by user ${ctx.peerId}`);
       // console.log(`Command ${state.command.aliases[0]} state ended by user ${ctx.peerId}`);
       return true;

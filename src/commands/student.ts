@@ -1,26 +1,35 @@
-import { ICommand, ICommandExec } from "../commandHandler";
+import { ICommand, ICommandExec, ICommandCond, ICommandCondResult, ICommandCallback } from "../commandHandler";
 import { emptyKeyboard, backButton } from "../keyboards";
 import xlsx from "xlsx";
 import path from "path";
 import crypto from "crypto";
-import fs from "fs";
-import { Keyboard } from "vk-io";
+import fs, { stat } from "fs";
+import { Keyboard, MessageContext } from "vk-io";
 import * as dataHandler from "../dataHandler";
 import logger, { LogType } from "../logHandler";
 
 const PASSWORD_PATH = "./config/passwords.json";
 
+export interface ICredentials {
+  admin: string;
+  users: IStudent[];
+}
+
 export interface IStudent {
   hash: string;
+  password?: string;
   studentName: string;
 }
 
 const command: ICommand = {
   aliases: ["student"],
   description: "Выдать информацию о студенте",
-  async next(ctx, { state }) {
-    const passwords = await dataHandler.loadData<IStudent[]>(PASSWORD_PATH).catch(err => logger.log("command: student", err, LogType.error));
-    if (!passwords) {
+  async next(ctx) {
+    const credentials = await dataHandler.loadData<ICredentials>(PASSWORD_PATH).catch(err => logger.log("command: student", err, LogType.error));
+    const data: any = {
+      credentials
+    };
+    if (!credentials) {
       ctx.send("Вышла ошибочка при загрузке данных студентов, свяжитесь с админами, плес...");
       return;
     }
@@ -28,44 +37,91 @@ const command: ICommand = {
       keyboard: Keyboard.keyboard([[backButton]])
     });
     return {
-      next: getStudentInfo,
-      data: state,
+      next: async (ctx, data) => (data.state.isAdmin ? await handleAdminPanel(ctx, data) : await handleStudentInfo(ctx, data)),
+      data,
       condition: async ctx => {
         const hash = crypto
           .createHash("md5")
           .update(ctx.text)
           .digest("hex");
-        const user = passwords.find(p => p.hash === hash);
-        if (!user)
-          return {
-            error: true,
-            message: "Неверный пароль."
-          };
-        else {
-          state.user = user.studentName;
-          return {
-            error: false,
-            message: "Отправляю.."
-          };
+        const isAdmin = credentials.admin === hash;
+        const user = isAdmin ? undefined : credentials.users.find(p => p.hash === hash);
+        if (!isAdmin && !user) {
+          return invalidPassword;
+        } else if (isAdmin) {
+          data.isAdmin = true;
+          return { error: false };
+        } else {
+          data.user = (user as IStudent).studentName;
+          return { error: false };
         }
       }
     };
   }
 };
 
-const getStudentInfo: ICommandExec = async (ctx, { state }) => {
+const invalidPassword: ICommandCondResult = {
+  error: true,
+  message: "Неверный пароль"
+};
+
+const handleStudentInfo: ICommandExec = async (ctx, { state, handler }) => {
   const student = findStudent(state.user);
   if (!student) ctx.send("Студент не найден.");
   else {
+    ctx.send("Подождите..");
     const doc = xlsx.utils.json_to_sheet([student]);
     const book = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(book, doc, "Ведомость");
     xlsx.writeFile(book, "./student.xlsx");
-    ctx.sendDocument({
+    await ctx.sendDocument({
       value: "./student.xlsx",
       filename: `${state.user} (${new Date().toISOString().split("T")[0]}).xlsx`
     });
+    handler.forceExitMessage(ctx);
   }
+};
+
+const handleAdminPanel: ICommandExec = async (ctx, { state, handler }) => {
+  enum ActionType {
+    getData = "getData",
+    setData = "setData",
+    complete = "complete"
+  }
+  ctx.send("Добро пожаловать, господин. Чего желаете?", {
+    keyboard: Keyboard.keyboard([
+      [Keyboard.textButton({ label: "Готово", color: "positive", payload: { action: ActionType.complete } })],
+      [
+        Keyboard.textButton({ label: "Вывести данные", color: "primary", payload: { action: ActionType.getData } }),
+        Keyboard.textButton({ label: "Внести данные", color: "primary", payload: { action: ActionType.setData } })
+      ],
+      [backButton]
+    ])
+  });
+  return {
+    // next: async (ctx, data) => (!data.state.action)
+    condition: async ctx => {
+      const payload = ctx.messagePayload;
+      if (!payload || !payload.action) return { error: true };
+      else {
+        state.action = payload.action;
+        switch (payload.action as ActionType) {
+          case ActionType.getData: {
+            await ctx.send("Студенты:\n" + state.credentials.users.map((c: IStudent) => `${c.studentName}:${c.password}`).join("\n"));
+            return {
+              error: true
+            };
+          }
+          case ActionType.complete: {
+            handler.forceExitMessage(ctx);
+            return { error: false };
+          }
+          default:
+            return { error: true };
+        }
+      }
+    }
+  };
 };
 
 function findStudent(name: string): any {

@@ -6,7 +6,7 @@ export const emptyKeyboard = JSON.stringify({
 });
 
 export const backButton = Keyboard.textButton({
-  color: "primary",
+  color: "negative",
   label: "Назад",
   payload: { command: "back" }
 });

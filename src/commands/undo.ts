@@ -8,10 +8,7 @@ const command: ICommand = {
   global: true,
   async next(ctx, { handler }) {
     const deleted = handler.undoState(ctx);
-    if (deleted)
-      ctx.send("Вы вышли из бота", {
-        keyboard: Keyboard.keyboard([passwordGetButton])
-      });
+    if (deleted) handler.forceExitMessage(ctx);
   }
 };
 
