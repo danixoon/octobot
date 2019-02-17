@@ -4,9 +4,20 @@ import { emptyKeyboard } from "../keyboards";
 const command: ICommand = {
   aliases: ["secret"],
   description: "Секреееет :)",
-  global: true,
-  async execute(session, ctx) {
-    ctx.say("Я БЛЯЯЯ НЕНАВИЖУ ЭТИХ ЛЮДЕЙ СУКА ПИСАЛ 500000 ЛЕТ УМЕР", emptyKeyboard);
+  async execute(session, response) {
+    const answer = await session.question(response, "Ты как?", ["плохо", "хорошо", "ну так"]);
+    switch (answer) {
+      case 0:
+        response.say("так тебе и надо");
+        break;
+      case 1:
+        response.say("очень жаль");
+        break;
+      case 2:
+        response.say("эээ");
+        break;
+    }
+    throw new Error("I AM EXCEPTION AHAHAHHAHA");
   }
 };
 

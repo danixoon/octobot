@@ -1,7 +1,5 @@
 import { ICommand } from "../handler";
-import { emptyKeyboard, backButton } from "../keyboards";
 import crypto from "crypto";
-import { Keyboard } from "vk-io";
 
 const command: ICommand = {
   aliases: ["hash"],

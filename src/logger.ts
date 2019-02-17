@@ -36,7 +36,11 @@ export enum LogType {
 
 export default {
   log(from: string, data: any, type: LogType = LogType.default) {
-    // logType["error"]
-    console.log(`${type}[${from}] ${data}${[LogType.default]}`);
+    const date = new Date();
+    const h = date.getHours().toString();
+    const m = date.getMinutes().toString();
+    const s = date.getSeconds().toString();
+    const time = `${h.length > 1 ? h : `0${h}`}:${m.length > 1 ? m : `0${m}`}:${s.length > 1 ? s : `0${s}`}`;
+    console.log(`${type}[${from} ${time}] ${data}${[LogType.default]}`);
   }
 };

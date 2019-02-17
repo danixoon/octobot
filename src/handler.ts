@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import readline from "readline";
 import { MessageContext, Keyboard } from "vk-io";
 import logger, { LogType } from "./logger";
-import { defaultKeyboard, passwordGetButton } from "./keyboards";
+import { defaultKeyboard, passwordGetButton, backButton } from "./keyboards";
 
 export type ActionCallback = () => Promise<any>;
 
@@ -25,7 +25,8 @@ const defaultCommands: ICommand[] = [
   }
 ];
 
-export interface IContextWrapper {
+export interface ICommandResponse {
+  args: string[];
   ctx: MessageContext;
   say(text: string, keyboard?: Keyboard, data?: any): Promise<void>;
 }
@@ -44,33 +45,44 @@ export class CommandHandler {
     const payload = ctx.messagePayload as IPayload;
     const command = (payload && payload.command && `${this.prefix}${payload.command}`) || ctx.text;
     const isCommand = command.startsWith(this.prefix);
-    const commandName = isCommand ? command.substr(this.prefix.length, command.length) : command;
+
+    let args: string[] = [];
+    let commandName = command;
+
+    if (isCommand) {
+      args = command.split(/\s+/gm);
+      args[0] = args[0].substr(this.prefix.length, args[0].length);
+      commandName = args[0];
+    }
+
     const cmd = isCommand && this.commands.find(c => c.aliases.includes(commandName));
 
     let session = this.sessions.get(user);
 
-    if (!session && !cmd) return;
-    if (session && cmd && cmd.global) return await this.execute(session, cmd, ctx);
+    if (!session && !cmd) return isCommand && ctx.send("Неизвестная команда.");
+    if (session && cmd && cmd.global) return await this.execute(session, cmd, ctx, args);
     if ((session && !cmd) || (session && cmd))
       return session.onMessage({
         message: ctx.text,
         payload: ctx.messagePayload as any
       });
     if (!session && cmd) {
+      ctx.text = commandName;
       session = new CommandSession(this);
       this.sessions.set(user, session);
-      await this.execute(session, cmd, ctx);
+      await this.execute(session, cmd, ctx, args);
       this.sessions.delete(user);
       return;
     }
   }
-  async execute(session: CommandSession, cmd: ICommand, ctx: MessageContext) {
+  async execute(session: CommandSession, cmd: ICommand, ctx: MessageContext, args?: string[]) {
     const commandName = `${this.prefix}${cmd.aliases[0]}`;
-    logger.log("handler", `executing ${commandName}`);
-    await session.execute(cmd, ctx).catch(err => {
-      logger.log("handler", `command ${commandName} error: ${err ? err.message || err : "uh.."}`, LogType.error);
+    const from = `id${ctx.peerId}`;
+    logger.log("handler", `${from} executing ${commandName}`);
+    await session.execute(cmd, ctx, args).catch(err => {
+      logger.log("handler", `${from} error ${commandName}: ${err ? err.message || err : "uh.."}`, LogType.error);
     });
-    logger.log("handler", `executed ${commandName}`);
+    logger.log("handler", `${from} executed ${commandName}`);
   }
 }
 
@@ -78,7 +90,7 @@ export interface ICommand {
   aliases: string[];
   description: string;
   global?: boolean;
-  execute: (session: CommandSession, ctx: IContextWrapper) => Promise<void>;
+  execute: (session: CommandSession, ctx: ICommandResponse) => Promise<void>;
 }
 
 interface IAction {
@@ -178,14 +190,35 @@ export class CommandSession {
     const payload = await this.messagePayload();
     return payload.message;
   }
-
+  public async question(response: ICommandResponse, text: string, selections: string[]): Promise<number> {
+    let i = 0;
+    const keyboard = Keyboard.keyboard([
+      selections.map(s =>
+        Keyboard.textButton({
+          color: Keyboard.DEFAULT_COLOR,
+          label: s,
+          payload: { selection: i++ }
+        })
+      ),
+      backButton
+    ]);
+    while (true) {
+      await response.say(text, keyboard);
+      const msg = await this.messagePayload();
+      let id;
+      if (msg.payload && msg.payload.selection !== undefined) id = msg.payload.selection;
+      else id = Number(msg.message);
+      if (id !== NaN && id + 1 >= 1 && id + 1 <= selections.length) return id;
+    }
+  }
   private invalidate() {
     this.emitter.emit("invalidate");
   }
-  public async execute(command: ICommand, ctx: MessageContext) {
+  public async execute(command: ICommand, ctx: MessageContext, args?: string[]) {
     return new Promise(async (res, rej) => {
       this.emitter.once("stop", () => res());
-      const wrapper: IContextWrapper = {
+      const wrapper: ICommandResponse = {
+        args: args || [],
         ctx,
         say: async (text, keyboard, data) => {
           data = data || {};
@@ -196,8 +229,10 @@ export class CommandSession {
 
       if (!command.global) this.command = command;
       await command.execute(this, wrapper).catch(rej);
-      if (!command.global) this.command = undefined;
-      wrapper.say("Команда завершена.", Keyboard.keyboard([passwordGetButton]));
+      if (!command.global) {
+        this.command = undefined;
+        wrapper.say("Команда завершена.", Keyboard.keyboard([passwordGetButton]));
+      }
       res();
     });
   }

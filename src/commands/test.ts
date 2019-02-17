@@ -1,4 +1,4 @@
-import { ICommand, ActionCallback, CommandSession, IContextWrapper } from "../handler";
+import { ICommand, ActionCallback, CommandSession, ICommandResponse } from "../handler";
 import { MessageContext, Keyboard } from "vk-io";
 import { backButton, defaultKeyboard } from "../keyboards";
 
@@ -13,7 +13,7 @@ const command: ICommand = {
         ctx.say("Как тебя зовут?");
         data.name = await session.message();
       })
-      .action(async () => {
+      .action("AGE_QUESTION", async () => {
         ctx.say("Сколько тебе лет?");
         data.age = await session.message();
       })
@@ -23,7 +23,7 @@ const command: ICommand = {
         while (true) {
           const answer = (await session.message()).toLowerCase();
           if (answer === "да") break;
-          else if (answer === "нет") return session.next(0, "USER_DATA");
+          else if (answer === "нет") return session.next("AGE_QUESTION", "USER_DATA");
           else ctx.say("Ответьте да/нет");
         }
         session.next(0, 1);
@@ -42,7 +42,7 @@ const command: ICommand = {
   }
 };
 
-function init(session: CommandSession, ctx: IContextWrapper) {
+function init(session: CommandSession, ctx: ICommandResponse) {
   const actions: ActionCallback[] = [
     async () => {
       ctx.say("Ха-ха!");

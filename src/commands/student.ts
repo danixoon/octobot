@@ -68,8 +68,6 @@ const command: ICommand = {
   }
 };
 
-const handleStudentInfo = async (ctx: MessageContext, user: string) => {};
-
 function findStudent(name: string): any {
   const table = xlsx.readFile("./config/students.xlsx");
   var sheetLists = table.SheetNames;
