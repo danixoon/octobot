@@ -117,6 +117,7 @@ export class CommandSession {
   private states: IState[] = [];
   private currentState: number = 0;
   private currentAction: number = 0;
+  private stateHistory: number[] = [0];
   private inState: boolean = false;
   private emitter: EventEmitter = new EventEmitter();
   public readonly handler: CommandHandler;
@@ -125,6 +126,7 @@ export class CommandSession {
     this.handler = handler;
     this.emitter.on("state", async () => {
       this.emitter.removeAllListeners("message");
+      if (this.stateHistory[this.stateHistory.length - 1] !== this.currentState) this.stateHistory.push(this.currentState);
       this.inState = true;
       await this.init();
       this.inState = false;
@@ -166,12 +168,13 @@ export class CommandSession {
   }
   private async update() {
     const curr = this.states[this.currentState].actions[this.currentAction++];
-    if (!curr) return;
+    if (!curr) return this.stop();
     await new Promise(async (res, rej) => {
       this.emitter.once("invalidate", res);
       await curr.callback().catch(rej);
       res();
     });
+
     this.emitter.emit("state");
     await this.update();
   }
@@ -216,7 +219,13 @@ export class CommandSession {
   }
   public async execute(command: ICommand, ctx: MessageContext, args?: string[]) {
     return new Promise(async (res, rej) => {
-      this.emitter.once("stop", () => res());
+      this.emitter.once("stop", () => {
+        if (!command.global) {
+          wrapper.say("Команда завершена.", Keyboard.keyboard([passwordGetButton]));
+          this.command = undefined;
+        }
+        res();
+      });
       const wrapper: ICommandResponse = {
         args: args || [],
         ctx,
@@ -229,10 +238,7 @@ export class CommandSession {
 
       if (!command.global) this.command = command;
       await command.execute(this, wrapper).catch(rej);
-      if (!command.global) {
-        this.command = undefined;
-        wrapper.say("Команда завершена.", Keyboard.keyboard([passwordGetButton]));
-      }
+
       res();
     });
   }
@@ -240,10 +246,15 @@ export class CommandSession {
     this.emitter.emit("stop");
   }
   public undo() {
-    const last = this.states[this.states.length - 1];
     this.currentAction -= 2;
-    if (this.currentAction >= 0 && this.currentAction < last.actions.length) this.invalidate();
-    else this.stop();
+    if (this.currentAction < 0) {
+      if (this.stateHistory.length === 1) return this.stop();
+      this.stateHistory.pop();
+      this.currentState = this.stateHistory.pop() as number;
+      this.currentAction = this.states[this.currentState].actions.length;
+      this.undo();
+    }
+    this.invalidate();
   }
   public next(actionId: number | string, stateId: number | string = this.currentState) {
     const stateIndex = typeof stateId === "string" ? this.states.findIndex(s => s.id === stateId) : stateId;
