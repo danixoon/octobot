@@ -10,12 +10,13 @@
   "private": false,
   "dependencies": {
     "@types/cheerio": "^0.22.10",
+    "@types/node": "^11.9.4",
     "@types/node-fetch": "^2.1.4",
     "@types/terminal-kit": "^1.26.0",
     "@types/tough-cookie": "^2.3.5",
     "@types/ws": "^6.0.1",
     "@types/xlsx": "^0.0.36",
-    "vk-io": "^4.0.0-rc.15",
+    "vk-io": "4.0.0-rc.15",
     "xlsx": "^0.14.1"
   }
 }

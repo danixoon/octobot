@@ -1,4 +1,16 @@
 import fs from "fs";
+import { ICommand } from "./handler";
+import hash from "./commands/hash";
+import help from "./commands/help";
+import secret from "./commands/secret";
+import student from "./commands/student";
+import start from "./commands/start";
+import test from "./commands/test";
+
+export function getAllCommands(): ICommand[] {
+  return [hash, help, secret, student, start, test];
+}
+
 export function loadData<T>(path: string): Promise<T> {
   return new Promise((res, rej) => {
     fs.readFile(path, (err, data) => {

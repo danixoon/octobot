@@ -1,15 +1,15 @@
 import VK, { MessageContext, Keyboard } from "vk-io";
 import path from "path";
-import initHandler, { CommandHandler } from "./commandHandler";
+import { CommandHandler } from "./handler";
 import fs from "fs";
 import * as dataHandler from "./dataHandler";
-import logger, { LogType } from "./logHandler";
+import logger, { LogType } from "./logger";
 
 const CONFIG_PATH = "./config/config.json";
 const COMMAND_PREFIX = "/";
 
 let config;
-let commandHandler: CommandHandler;
+let commandHandler: CommandHandler = new CommandHandler(COMMAND_PREFIX, dataHandler.getAllCommands());
 let vk: VK = new VK();
 
 const { updates } = vk;
@@ -17,7 +17,6 @@ const { updates } = vk;
 async function run() {
   config = (await dataHandler.loadData(CONFIG_PATH).catch(err => logger.log("main", err, LogType.error))) as any;
   vk.setOptions(config);
-  commandHandler = await initHandler(COMMAND_PREFIX);
   if (process.env.UPDATES === "webhook") {
     await vk.updates.startWebhook();
     logger.log("main", "webhook server started", LogType.info);
@@ -43,7 +42,7 @@ updates.use(async (context: MessageContext, next) => {
 // Handle message payload
 updates.use(async (ctx: MessageContext, next) => {
   if (ctx.type !== "message") return await next();
-  await commandHandler.handleMessage(ctx);
+  commandHandler.handle(ctx.peerId, ctx);
   await next;
 });
 

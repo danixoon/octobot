@@ -8,7 +8,7 @@ export const emptyKeyboard = JSON.stringify({
 export const backButton = Keyboard.textButton({
   color: "negative",
   label: "Назад",
-  payload: { command: "back" }
+  payload: { command: "undo" }
 });
 
 export const passwordGetButton = Keyboard.textButton({
