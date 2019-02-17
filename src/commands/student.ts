@@ -1,5 +1,5 @@
 import { ICommand } from "../handler";
-import { emptyKeyboard, backButton } from "../keyboards";
+import { emptyKeyboard, backButton, passwordGetButton, defaultKeyboard } from "../keyboards";
 import xlsx from "xlsx";
 import crypto from "crypto";
 import { Keyboard, MessageContext } from "vk-io";
@@ -30,10 +30,10 @@ const command: ICommand = {
       .action(async () => {
         credentials = (await dataHandler.loadData<ICredentials>(PASSWORD_PATH).catch(err => logger.log("command: student", err, LogType.error))) as ICredentials;
         if (!credentials) {
-          ctx.send("Вышла ошибочка при загрузке данных студентов, свяжитесь с админами, плес...");
+          ctx.say("Вышла ошибочка при загрузке данных студентов, свяжитесь с админами, плес...", Keyboard.keyboard([passwordGetButton]));
           return;
         }
-        ctx.send("Введите пароль.");
+        ctx.say("Введите пароль.", defaultKeyboard);
         while (true) {
           const pass = await session.message();
           const hash = crypto
@@ -45,20 +45,20 @@ const command: ICommand = {
             user = u;
             break;
           } else {
-            ctx.send("Неверный пароль.");
+            ctx.say("Неверный пароль.");
           }
         }
       })
       .action(async () => {
         const student = findStudent(user.studentName);
-        if (!student) ctx.send("Студент не найден в таблице.");
+        if (!student) ctx.say("Студент не найден в таблице.");
         else {
-          ctx.send("Подождите..");
+          ctx.say("Подождите..");
           const doc = xlsx.utils.json_to_sheet([student]);
           const book = xlsx.utils.book_new();
           xlsx.utils.book_append_sheet(book, doc, "Ведомость");
           xlsx.writeFile(book, "./student.xlsx");
-          await ctx.sendDocument({
+          await ctx.ctx.sendDocument({
             value: "./student.xlsx",
             filename: `${user.studentName} (${new Date().toISOString().split("T")[0]}).xlsx`
           });

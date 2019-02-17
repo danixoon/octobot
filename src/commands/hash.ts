@@ -7,13 +7,13 @@ const command: ICommand = {
   aliases: ["hash"],
   description: "Выдаёт хеш",
   async execute(session, ctx) {
-    ctx.send("Окей, я выдам тебе хеш, напиши строку", { keyboard: Keyboard.keyboard([backButton]) });
+    ctx.say("Окей, я выдам тебе хеш, напиши строку");
     const str = await session.message();
     const hash = crypto
       .createHash("md5")
-      .update(ctx.text)
+      .update(str)
       .digest("hex");
-    ctx.send(`Вот твой хеш: ${hash}`, { keyboard: Keyboard.keyboard([]) });
+    ctx.say(`Вот твой хеш: ${hash}`);
   }
 };
 

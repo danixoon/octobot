@@ -1,6 +1,6 @@
-import { ICommand, ActionCallback, Session } from "../handler";
+import { ICommand, ActionCallback, CommandSession, IContextWrapper } from "../handler";
 import { MessageContext, Keyboard } from "vk-io";
-import { backButton } from "../keyboards";
+import { backButton, defaultKeyboard } from "../keyboards";
 
 const command: ICommand = {
   aliases: ["test"],
@@ -10,33 +10,31 @@ const command: ICommand = {
     await session
       .state("USER_DATA")
       .action(async () => {
-        ctx.send("Как тебя зовут?", {
-          keyboard: Keyboard.keyboard([backButton])
-        });
+        ctx.say("Как тебя зовут?");
         data.name = await session.message();
       })
       .action(async () => {
-        ctx.send("Сколько тебе лет?");
+        ctx.say("Сколько тебе лет?");
         data.age = await session.message();
       })
       .action(async () => {
-        ctx.send(`Ваши данные:\nИмя: ${data.name}\nВозраст: ${data.age}`);
-        ctx.send(`Всё верно? (да/нет)`);
+        ctx.say(`Ваши данные:\nИмя: ${data.name}\nВозраст: ${data.age}`);
+        ctx.say(`Всё верно? (да/нет)`);
         while (true) {
           const answer = (await session.message()).toLowerCase();
           if (answer === "да") break;
           else if (answer === "нет") return session.next(0, "USER_DATA");
-          else ctx.send("Ответьте да/нет");
+          else ctx.say("Ответьте да/нет");
         }
         session.next(0, 1);
       })
       .state("LIFE_GOAL")
       .action(async () => {
-        ctx.send("Зачем ты живёшь?");
+        ctx.say("Зачем ты живёшь?");
         data.lifeGoal = await session.message();
       })
       .action(async () => {
-        ctx.send(`Твоя цель жизни: ${data.lifeGoal}`);
+        ctx.say(`Твоя цель жизни: ${data.lifeGoal}`);
         session.next(0, "FUNNY_STATE");
       })
       .state(init(session, ctx), "FUNNY_STATE")
@@ -44,14 +42,14 @@ const command: ICommand = {
   }
 };
 
-function init(session: Session, ctx: MessageContext) {
+function init(session: CommandSession, ctx: IContextWrapper) {
   const actions: ActionCallback[] = [
     async () => {
-      ctx.send("Ха-ха!");
+      ctx.say("Ха-ха!");
       await session.message();
     },
     async () => {
-      ctx.send("Ты такой забавный!");
+      ctx.say("Ты такой забавный!");
       await session.message();
     }
   ];

@@ -6,9 +6,7 @@ const command: ICommand = {
   description: "Секреееет :)",
   global: true,
   async execute(session, ctx) {
-    ctx.send("Я БЛЯЯЯ НЕНАВИЖУ ЭТИХ ЛЮДЕЙ СУКА ПИСАЛ 500000 ЛЕТ УМЕР", {
-      keyboard: emptyKeyboard
-    });
+    ctx.say("Я БЛЯЯЯ НЕНАВИЖУ ЭТИХ ЛЮДЕЙ СУКА ПИСАЛ 500000 ЛЕТ УМЕР", emptyKeyboard);
   }
 };
 

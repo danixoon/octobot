@@ -1,9 +1,6 @@
 import { Keyboard } from "vk-io";
 
-export const emptyKeyboard = JSON.stringify({
-  one_time: true,
-  buttons: []
-});
+export const emptyKeyboard = Keyboard.keyboard([]);
 
 export const backButton = Keyboard.textButton({
   color: "negative",
@@ -18,6 +15,8 @@ export const passwordGetButton = Keyboard.textButton({
     command: "student"
   }
 });
+
+export const defaultKeyboard = Keyboard.keyboard([backButton]);
 
 export const yesNoKeyboard = Keyboard.keyboard([
   [
