@@ -6,9 +6,10 @@ import secret from "./commands/secret";
 import student from "./commands/student";
 import start from "./commands/start";
 import test from "./commands/test";
+import quest from "./commands/quest";
 
 export function getAllCommands(): ICommand[] {
-  return [hash, help, secret, student, start, test];
+  return [hash, help, secret, student, start, test, quest];
 }
 
 export function loadData<T>(path: string): Promise<T> {

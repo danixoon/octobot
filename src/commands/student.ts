@@ -69,7 +69,7 @@ const command: ICommand = {
     session
       .state("ADMIN_PANEL")
       .action(async () => {
-        answer = await session.question(response, "Чего вы желаете, господин?", ["Вывести аккаунты", "Изменить аккуанты", "Завершить"]);
+        answer = await response.question("Чего вы желаете, господин?", ["Вывести аккаунты", "Изменить аккуанты", "Завершить"]);
       })
       .action(async () => {
         switch (answer) {

@@ -29,6 +29,7 @@ export interface ICommandResponse {
   args: string[];
   ctx: MessageContext;
   say(text: string, keyboard?: Keyboard, data?: any): Promise<void>;
+  question(text: string, selections: string[]): Promise<number>;
 }
 
 export class CommandHandler {
@@ -131,12 +132,7 @@ export class CommandSession {
       await this.init();
       this.inState = false;
     });
-    this.emitter.on("stop", () => {
-      this.command = undefined;
-      this.states = [];
-      this.currentAction = 0;
-      this.emitter.removeAllListeners();
-    });
+    this.emitter.on("stop", () => {});
   }
   public state(actions: ActionCallback[], name?: string): CommandSession;
   public state(name?: string): CommandSession;
@@ -168,7 +164,7 @@ export class CommandSession {
   }
   private async update() {
     const curr = this.states[this.currentState].actions[this.currentAction++];
-    if (!curr) return this.stop();
+    if (!curr) return this.stop(this.command && this.command.aliases[0]);
     await new Promise(async (res, rej) => {
       this.emitter.once("invalidate", res);
       await curr.callback().catch(rej);
@@ -193,62 +189,40 @@ export class CommandSession {
     const payload = await this.messagePayload();
     return payload.message;
   }
-  public async question(response: ICommandResponse, text: string, selections: string[]): Promise<number> {
-    let i = 0;
-    const keyboard = Keyboard.keyboard([
-      selections.map(s =>
-        Keyboard.textButton({
-          color: Keyboard.DEFAULT_COLOR,
-          label: s,
-          payload: { selection: i++ }
-        })
-      ),
-      backButton
-    ]);
-    while (true) {
-      await response.say(text, keyboard);
-      const msg = await this.messagePayload();
-      let id;
-      if (msg.payload && msg.payload.selection !== undefined) id = msg.payload.selection;
-      else id = Number(msg.message);
-      if (id !== NaN && id + 1 >= 1 && id + 1 <= selections.length) return id;
-    }
-  }
+
   private invalidate() {
     this.emitter.emit("invalidate");
   }
   public async execute(command: ICommand, ctx: MessageContext, args?: string[]) {
+    const session = this;
     return new Promise(async (res, rej) => {
-      this.emitter.once("stop", () => {
-        if (!command.global) {
-          wrapper.say("Команда завершена.", Keyboard.keyboard([passwordGetButton]));
-          this.command = undefined;
-        }
-        res();
-      });
-      const wrapper: ICommandResponse = {
-        args: args || [],
-        ctx,
-        say: async (text, keyboard, data) => {
-          data = data || {};
-          data.keyboard = keyboard || defaultKeyboard;
-          ctx.send(text, data);
-        }
-      };
-
+      function listen() {
+        session.emitter.once("stop", name => {
+          if (name !== undefined && command.aliases[0] !== name) return listen();
+          if (!command.global) {
+            response.say("Команда завершена.", Keyboard.keyboard([passwordGetButton]));
+            session.command = undefined;
+            session.states = [];
+            session.currentAction = 0;
+            session.emitter.removeAllListeners();
+          }
+          res();
+        });
+      }
+      listen();
+      const response = this.createResponse(ctx, args);
       if (!command.global) this.command = command;
-      await command.execute(this, wrapper).catch(rej);
-
-      res();
+      await command.execute(this, response).catch(rej);
+      this.stop(command.aliases[0]);
     });
   }
-  public stop() {
-    this.emitter.emit("stop");
+  public stop(name?: string) {
+    this.emitter.emit("stop", name);
   }
   public undo() {
     this.currentAction -= 2;
     if (this.currentAction < 0) {
-      if (this.stateHistory.length === 1) return this.stop();
+      if (this.stateHistory.length === 1) return this.stop(this.command && this.command.aliases[0]);
       this.stateHistory.pop();
       this.currentState = this.stateHistory.pop() as number;
       this.currentAction = this.states[this.currentState].actions.length;
@@ -269,6 +243,40 @@ export class CommandSession {
   public repeat() {
     this.currentAction--;
     this.invalidate();
+  }
+  private createResponse(ctx: MessageContext, args?: string[]): ICommandResponse {
+    const session = this;
+    const response: ICommandResponse = {
+      args: args || [],
+      ctx,
+      async say(text, keyboard, data) {
+        data = data || {};
+        data.keyboard = keyboard || defaultKeyboard;
+        ctx.send(text, data);
+      },
+      async question(text: string, selections: string[]): Promise<number> {
+        let i = 0;
+        const keyboard = Keyboard.keyboard([
+          selections.map(s =>
+            Keyboard.textButton({
+              color: Keyboard.DEFAULT_COLOR,
+              label: s,
+              payload: { selection: i++ }
+            })
+          ),
+          backButton
+        ]);
+        while (true) {
+          await this.say(text, keyboard);
+          const msg = await session.messagePayload();
+          let id;
+          if (msg.payload && msg.payload.selection !== undefined) id = msg.payload.selection;
+          else id = Number(msg.message);
+          if (id !== NaN && id + 1 >= 1 && id + 1 <= selections.length) return id;
+        }
+      }
+    };
+    return response;
   }
 }
 

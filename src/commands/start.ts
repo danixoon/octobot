@@ -6,13 +6,9 @@ const command: ICommand = {
   aliases: ["start", "начать"],
   description: "Запуск",
   async execute(session, ctx) {
-    await session
-      .action(async () => {
-        await ctx.say("Здравствуй! Я помогу тебе заплакать!", yesNoKeyboard);
-        await session.message();
-      })
-      .init();
-  }
+    await ctx.say("Здравствуй! Я помогу тебе заплакать!", yesNoKeyboard);
+    await session.message();
+  } 
 };
 
 export default command;

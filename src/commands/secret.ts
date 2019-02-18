@@ -5,7 +5,7 @@ const command: ICommand = {
   aliases: ["secret"],
   description: "Секреееет :)",
   async execute(session, response) {
-    const answer = await session.question(response, "Ты как?", ["плохо", "хорошо", "ну так"]);
+    const answer = await response.question("Ты как?", ["плохо", "хорошо", "ну так"]);
     switch (answer) {
       case 0:
         response.say("так тебе и надо");
